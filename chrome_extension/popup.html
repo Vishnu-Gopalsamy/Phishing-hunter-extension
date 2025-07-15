@@ -548,6 +548,130 @@
         background: linear-gradient(45deg, #667eea, #764ba2);
         border-radius: 3px;
       }
+      
+      #loading {
+        text-align: center;
+        padding: 20px;
+      }
+      
+      #error {
+        background-color: #ffeeee;
+        border: 1px solid #ffcccc;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 4px;
+        display: none;
+      }
+      
+      #result {
+        display: none;
+      }
+      
+      .header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+      }
+      
+      #statusIcon {
+        font-size: 24px;
+        margin-right: 10px;
+      }
+      
+      .status-safe {
+        color: #4caf50;
+        font-weight: bold;
+        font-size: 18px;
+      }
+      
+      .status-warning {
+        color: #f44336;
+        font-weight: bold;
+        font-size: 18px;
+      }
+      
+      #reason {
+        margin-bottom: 15px;
+        font-size: 14px;
+      }
+      
+      .risk-meter {
+        background-color: #f1f1f1;
+        border-radius: 4px;
+        height: 10px;
+        margin-bottom: 5px;
+      }
+      
+      .risk-fill {
+        height: 100%;
+        border-radius: 4px;
+      }
+      
+      .low-risk {
+        background-color: #4caf50;
+      }
+      
+      .medium-risk {
+        background-color: #ff9800;
+      }
+      
+      .high-risk {
+        background-color: #f44336;
+      }
+      
+      .risk-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: #666;
+      }
+      
+      .high-risk-warning {
+        background-color: #ffebee;
+        color: #c62828;
+        padding: 10px;
+        margin: 10px 0;
+        border-left: 4px solid #c62828;
+        font-weight: bold;
+      }
+      
+      #sourceCodeAnalysis {
+        margin-top: 20px;
+        border-top: 1px solid #eee;
+        padding-top: 10px;
+        display: none;
+      }
+      
+      .threat-list {
+        padding-left: 20px;
+        color: #d32f2f;
+      }
+      
+      .threat-item {
+        margin-bottom: 5px;
+      }
+      
+      .source-code-warning {
+        background-color: #fff8e1;
+        border-left: 4px solid #ffa000;
+        padding: 8px;
+        margin-top: 10px;
+        font-weight: bold;
+      }
+      
+      .code-details {
+        background-color: #f5f5f5;
+        padding: 8px;
+        margin-top: 10px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      
+      .warning-detail {
+        color: #d32f2f;
+      }
     </style>
   </head>
   <body>
@@ -585,6 +709,20 @@
         </div>
         
         <div id="details" class="details"></div>
+        
+        <div id="sourceCodeAnalysis" style="display:none;">
+          <div class="source-code-warning">Source Code Analysis Detected Potential Threats:</div>
+          <div class="threat-list">
+            <div class="threat-item">⚠️ <span class="warning-detail">Malicious function detected</span></div>
+            <div class="threat-item">⚠️ <span class="warning-detail">Suspicious variable name</span></div>
+            <div class="threat-item">⚠️ <span class="warning-detail">Unexpected redirect found</span></div>
+          </div>
+          <div class="code-details">
+            <div><strong>File:</strong> example.js</div>
+            <div><strong>Line:</strong> 42</div>
+            <div><strong>Column:</strong> 13</div>
+          </div>
+        </div>
         
         <div class="action-buttons">
           <button id="detailedAnalysis" class="btn btn-primary">DEEP SCAN</button>

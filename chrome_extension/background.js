@@ -91,6 +91,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+// Store the latest source code analysis result
+let latestSourceCodeAnalysis = null;
+
+// Listen for messages from content script and popup
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Store source code analysis from content script
+  if (message.action === 'sourceCodeAnalysisResult' || message.action === 'sourceCodeThreatUpdated') {
+    latestSourceCodeAnalysis = message.data;
+  }
+  
+  // Return stored analysis to popup when requested
+  if (message.action === 'getSourceCodeAnalysis') {
+    sendResponse({data: latestSourceCodeAnalysis});
+    return true;
+  }
+});
+
+// Reset the analysis when navigating to a new page
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'loading') {
+    latestSourceCodeAnalysis = null;
+  }
+});
+
 // Add badge text to show detection system status
 chrome.action.setBadgeText({text: "AI"});
 chrome.action.setBadgeBackgroundColor({color: "#667eea"});

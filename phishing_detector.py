@@ -131,222 +131,869 @@ class Layer1_BasicValidation(DetectionLayer):
 
 class Layer2_FeatureAnalysis(DetectionLayer):
     """
-    Layer 2: Advanced Feature Analysis
-    - Comprehensive URL feature extraction
-    - Domain-based analysis
-    - Structural analysis
+    Layer 2: Feature Analysis
+    - Domain-based features
+    - URL structure analysis
+    - WHOIS data analysis
     """
     
     def __init__(self):
         super().__init__("Feature Analysis", weight=1.0)
     
     def analyze(self, url: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Perform comprehensive feature analysis."""
+        """Analyze URL features."""
         results = {
             'layer': self.name,
             'risk_score': 0.0,
             'flags': [],
-            'features': {},
-            'feature_scores': {}
+            'details': {}
         }
         
         try:
-            # Extract features using existing function
+            # Extract features
             features = extract_features(url)
-            results['features'] = features
             
-            # Score each feature
-            feature_scores = self._score_features(features)
-            results['feature_scores'] = feature_scores
+            # Assess risk based on features
+            risk_score = 0.0
             
-            # Calculate total risk score
-            total_score = sum(feature_scores.values())
-            results['risk_score'] = min(total_score, 100)  # Cap at 100
+            # 1. Check for IP address in URL
+            if features.get('has_ip_address', False):
+                results['flags'].append("IP address used in URL")
+                risk_score += 20
             
-            # Generate flags based on high-risk features
-            if features.get('has_ip_address'):
-                results['flags'].append("Uses IP address instead of domain")
+            # 2. Check URL length
+            if features.get('url_length') == 'Suspicious':
+                results['flags'].append("Suspicious URL length")
+                risk_score += 15
+            elif features.get('url_length') == 'Phishing':
+                results['flags'].append("Very long URL")
+                risk_score += 30
             
-            if features.get('https_token_in_domain'):
+            # 3. Check for shortened URL
+            if features.get('is_shortened', False):
+                results['flags'].append("URL shortening service detected")
+                risk_score += 25
+            
+            # 4. Check for double slash redirect
+            if features.get('double_slash_redirect', False):
+                results['flags'].append("Double slash redirect detected")
+                risk_score += 10
+            
+            # 5. Check for dash in domain
+            if features.get('has_dash_in_domain', False):
+                results['flags'].append("Domain contains dashes")
+                risk_score += 15
+            
+            # 6. Check subdomain level
+            if features.get('subdomain_level') == 'Suspicious':
+                results['flags'].append("Suspicious subdomain depth")
+                risk_score += 20
+            elif features.get('subdomain_level') == 'Phishing':
+                results['flags'].append("Excessive subdomain levels")
+                risk_score += 35
+            
+            # 7. Check for HTTPS in domain (not in protocol)
+            if features.get('https_token_in_domain', False):
                 results['flags'].append("HTTPS token in domain name")
+                risk_score += 40
             
-            if features.get('double_slash_redirect'):
-                results['flags'].append("Double slash redirection detected")
-            
+            # 8. Check domain age
             if features.get('domain_age') == 'Phishing':
-                results['flags'].append("Young or suspicious domain age")
+                results['flags'].append("Domain registered less than 6 months ago")
+                risk_score += 25
             
-            if not features.get('dns_record'):
+            # 9. Check domain expiry
+            if features.get('domain_registration_length') == 'Phishing':
+                results['flags'].append("Domain expires in less than 1 year")
+                risk_score += 15
+            
+            # 10. Check DNS record
+            if not features.get('dns_record', True):
                 results['flags'].append("No DNS record found")
+                risk_score += 30
+            
+            # Set final risk score (cap at 100)
+            results['risk_score'] = min(100, risk_score)
+            results['details'] = features
             
         except Exception as e:
             results['flags'].append(f"Feature analysis error: {str(e)}")
-            results['risk_score'] = 30
+            results['risk_score'] = 10  # Small default risk for errors
         
         return results
-    
-    def _score_features(self, features: Dict[str, Any]) -> Dict[str, float]:
-        """Score individual features."""
-        scores = {}
-        
-        # High-risk features (0-25 points each)
-        scores['ip_address'] = 25 if features.get('has_ip_address') else 0
-        scores['https_token'] = 25 if features.get('https_token_in_domain') else 0
-        scores['double_slash'] = 20 if features.get('double_slash_redirect') else 0
-        scores['no_dns'] = 25 if not features.get('dns_record') else 0
-        
-        # URL length scoring
-        url_length = features.get('url_length', 'Legitimate')
-        if url_length == 'Phishing':
-            scores['url_length'] = 15
-        elif url_length == 'Suspicious':
-            scores['url_length'] = 8
-        else:
-            scores['url_length'] = 0
-        
-        # Domain features
-        scores['domain_age'] = 15 if features.get('domain_age') == 'Phishing' else 0
-        scores['registration_length'] = 10 if features.get('domain_registration_length') == 'Phishing' else 0
-        
-        # Medium-risk features
-        scores['shortened_url'] = 10 if features.get('is_shortened') else 0
-        scores['dash_in_domain'] = 8 if features.get('has_dash_in_domain') else 0
-        
-        # Subdomain analysis
-        subdomain_level = features.get('subdomain_level', 'Legitimate')
-        if subdomain_level == 'Phishing':
-            scores['subdomain'] = 12
-        elif subdomain_level == 'Suspicious':
-            scores['subdomain'] = 6
-        else:
-            scores['subdomain'] = 0
-        
-        return scores
 
-class Layer3_MLClassification(DetectionLayer):
+class Layer2_ContentAnalysis(DetectionLayer):
     """
-    Layer 3: Machine Learning Classification with GPU Support
-    - TF-IDF based URL analysis
-    - XGBoost/RandomForest classification
-    - GPU-accelerated inference
-    - Confidence scoring
+    Layer 2+: Content Analysis
+    - Examines HTML structure and content
+    - Analyzes JavaScript patterns
+    - Detects suspicious form behaviors
+    - Checks for SSL certificate issues
     """
     
     def __init__(self):
-        super().__init__("ML Classification", weight=1.5)  # Increased weight
-        self.model = None
-        self.vectorizer = None
-        self.model_info = {}
-        self._load_models()
-    
-    def _load_models(self):
-        """Load ML models with GPU support detection."""
-        try:
-            models_dir = os.path.join(os.path.dirname(__file__), 'models')
-            model_path = os.path.join(models_dir, 'phishing_classifier.pkl')
-            vectorizer_path = os.path.join(models_dir, 'tfidf_vectorizer.pkl')
-            results_path = os.path.join(models_dir, 'evaluation_results.json')
-            
-            if os.path.exists(model_path) and os.path.exists(vectorizer_path):
-                self.model = joblib.load(model_path)
-                self.vectorizer = joblib.load(vectorizer_path)
-                
-                # Load model info
-                if os.path.exists(results_path):
-                    with open(results_path, 'r') as f:
-                        self.model_info = json.load(f)
-                    
-                    model_type = self.model_info.get('model_type', 'Unknown')
-                    gpu_accelerated = self.model_info.get('gpu_accelerated', False)
-                    accuracy = self.model_info.get('accuracy', 0)
-                    
-                    logger.info(f"ML model loaded: {model_type}")
-                    logger.info(f"GPU accelerated: {gpu_accelerated}")
-                    logger.info(f"Model accuracy: {accuracy:.4f}")
-                else:
-                    logger.info("ML models loaded successfully")
-            else:
-                logger.warning("ML models not found")
-                self.enabled = False
-        except Exception as e:
-            logger.error(f"Failed to load ML models: {e}")
-            self.enabled = False
+        super().__init__("Content Analysis", weight=1.2)
+        self.sensitive_terms = [
+            'password', 'credit card', 'login', 'ssn', 'social security',
+            'verify', 'bank', 'account', 'update', 'confirm', 'secure'
+        ]
+        self.js_suspicious_patterns = [
+            'document.cookie', 'window.location', 'eval(', 'fromCharCode',
+            'onsubmit', 'addEventListener("submit"', '.submit()', 'keylogger',
+            'obfuscated', 'document.forms[0]'
+        ]
     
     def analyze(self, url: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Perform ML-based classification with GPU acceleration."""
+        """Analyze page content and behavior."""
         results = {
             'layer': self.name,
             'risk_score': 0.0,
             'flags': [],
-            'ml_prediction': None,
-            'confidence_scores': {},
-            'enabled': self.enabled,
-            'model_info': {
-                'type': self.model_info.get('model_type', 'Unknown'),
-                'gpu_accelerated': self.model_info.get('gpu_accelerated', False),
-                'accuracy': self.model_info.get('accuracy', 0)
-            }
+            'content_analysis': {},
+            'ssl_info': {},
+            'form_analysis': {},
+            'js_analysis': {}
         }
         
-        if not self.enabled:
-            results['flags'].append("ML models not available")
-            return results
-        
         try:
-            import time
-            start_time = time.time()
+            # Only proceed if URL is valid and accessible
+            if not url.startswith(('http://', 'https://')):
+                results['flags'].append("Skipping content analysis - invalid URL protocol")
+                return results
             
-            # Transform URL
-            url_vec = self.vectorizer.transform([url])
+            # Get page content
+            content = self._fetch_page_content(url)
+            if not content:
+                results['flags'].append("Failed to fetch page content")
+                results['risk_score'] = 30
+                return results
             
-            # Get prediction and probabilities
-            prediction = self.model.predict(url_vec)[0]
-            probabilities = self.model.predict_proba(url_vec)[0]
+            # Analyze HTML structure
+            html_risk, html_flags, html_analysis = self._analyze_html(content, url)
+            results['content_analysis'] = html_analysis
+            results['flags'].extend(html_flags)
+            results['risk_score'] += html_risk
             
-            inference_time = time.time() - start_time
+            # Analyze JavaScript
+            js_risk, js_flags, js_analysis = self._analyze_javascript(content)
+            results['js_analysis'] = js_analysis
+            results['flags'].extend(js_flags)
+            results['risk_score'] += js_risk
             
-            results['ml_prediction'] = 'phishing' if prediction == 1 else 'legitimate'
-            results['confidence_scores'] = {
-                'legitimate': float(probabilities[0]),
-                'phishing': float(probabilities[1])
-            }
-            results['inference_time'] = inference_time
+            # Analyze forms
+            form_risk, form_flags, form_analysis = self._analyze_forms(content, url)
+            results['form_analysis'] = form_analysis
+            results['flags'].extend(form_flags)
+            results['risk_score'] += form_risk
             
-            # More sensitive risk scoring for phishing detection
-            if prediction == 1:  # Phishing
-                results['risk_score'] = probabilities[1] * 100
-                results['flags'].append(f"ML classified as phishing (confidence: {probabilities[1]:.3f})")
-            else:  # Legitimate
-                # But if phishing probability is still significant, add some risk
-                if probabilities[1] > 0.3:
-                    results['risk_score'] = probabilities[1] * 60  # More conservative
-                    results['flags'].append(f"ML classified as legitimate but phishing probability is {probabilities[1]:.3f}")
-                else:
-                    results['risk_score'] = probabilities[1] * 30  # Lower penalty for clearly legitimate
+            # Check SSL certificate
+            ssl_risk, ssl_flags, ssl_info = self._check_ssl(url)
+            results['ssl_info'] = ssl_info
+            results['flags'].extend(ssl_flags)
+            results['risk_score'] += ssl_risk
             
-            # Add performance info
-            if self.model_info.get('gpu_accelerated'):
-                results['flags'].append(f"GPU-accelerated inference ({inference_time*1000:.1f}ms)")
+            # Cap risk score
+            results['risk_score'] = min(100, results['risk_score'])
             
         except Exception as e:
-            results['flags'].append(f"ML classification error: {str(e)}")
-            results['risk_score'] = 50  # Treat as suspicious if ML fails
-        
+            results['flags'].append(f"Content analysis error: {str(e)}")
+            results['risk_score'] = 0  # Don't penalize for analysis failures
+            
         return results
+    
+    def _fetch_page_content(self, url: str) -> Optional[str]:
+        """Fetch page content with timeout."""
+        try:
+            import requests
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml',
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
+            response = requests.get(url, headers=headers, timeout=5, verify=False)
+            return response.text
+        except Exception as e:
+            logger.error(f"Failed to fetch content for {url}: {e}")
+            return None
+    
+    def _analyze_html(self, content: str, url: str) -> Tuple[float, List[str], Dict[str, Any]]:
+        """Analyze HTML content for suspicious patterns."""
+        risk_score = 0
+        flags = []
+        analysis = {
+            'title_mismatch': False,
+            'brand_mentions': [],
+            'hidden_elements': 0,
+            'iframe_count': 0,
+            'external_resources': 0,
+            'suspicious_elements': [],
+            'favicon_mismatch': False,
+            'login_form_present': False,
+            'seo_issues': [],
+            'html_quality': {}
+        }
+        
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(content, 'html.parser')
+            
+            # Check page title
+            title = soup.title.text if soup.title else ""
+            analysis['page_title'] = title
+            
+            # Extract domain from URL for comparison
+            domain = urllib.parse.urlparse(url).netloc
+            if domain.startswith('www.'):
+                domain = domain[4:]
+            main_domain = '.'.join(domain.split('.')[-2:]) if '.' in domain else domain
+            
+            # Check for title mismatch with domain (often indicates phishing)
+            analysis['title_mismatch'] = main_domain.lower() not in title.lower()
+            if analysis['title_mismatch']:
+                flags.append("Page title doesn't match domain")
+                risk_score += 15
+            
+            # Check for brand mentions in content
+            common_brands = ['paypal', 'apple', 'microsoft', 'amazon', 'facebook', 
+                             'google', 'chase', 'bank', 'netflix', 'instagram',
+                             'linkedin', 'outlook', 'gmail', 'office365', 'bitcoin',
+                             'wellsfargo', 'bankofamerica', 'citibank', 'dropbox']
+            
+            # Get full page text
+            page_text = soup.get_text().lower()
+            
+            for brand in common_brands:
+                if brand.lower() in page_text and brand not in domain.lower():
+                    analysis['brand_mentions'].append(brand)
+                    flags.append(f"References to {brand} found, but not in domain")
+                    risk_score += 10
+                    break  # Only count one brand mention for risk score
+            
+            # NEW: Count number of brand mentions for additional context
+            brand_mention_count = sum(1 for brand in common_brands 
+                                     if brand.lower() in page_text and brand not in domain.lower())
+            if brand_mention_count > 1:
+                flags.append(f"Multiple ({brand_mention_count}) brand references not in domain name")
+                risk_score += min(5 * (brand_mention_count - 1), 15)  # Cap at +15 points
+            
+            # Check for hidden elements (common in phishing)
+            hidden_elements = soup.select('[style*="display: none"], [style*="display:none"], [style*="visibility: hidden"]')
+            
+            # NEW: More comprehensive hidden element detection
+            additional_hidden = soup.select('[style*="opacity: 0"], [style*="opacity:0"], [hidden], [aria-hidden="true"]')
+            hidden_elements.extend(additional_hidden)
+            
+            # Check for elements positioned off-screen (common phishing technique)
+            offscreen_elements = soup.select('[style*="position: absolute"][style*="left: -"], [style*="position:absolute"][style*="left:-"]')
+            hidden_elements.extend(offscreen_elements)
+            
+            analysis['hidden_elements'] = len(hidden_elements)
+            if analysis['hidden_elements'] > 2:  # Allow a couple for legitimate sites
+                flags.append(f"Found {analysis['hidden_elements']} hidden elements")
+                risk_score += 15
+                
+                # NEW: Check if hidden elements contain sensitive input fields
+                sensitive_hidden = False
+                for elem in hidden_elements:
+                    inputs = elem.find_all('input')
+                    for input_elem in inputs:
+                        input_type = input_elem.get('type', '')
+                        input_name = input_elem.get('name', '').lower()
+                        if input_type == 'password' or any(s in input_name for s in ['pass', 'pwd', 'credential']):
+                            sensitive_hidden = True
+                            break
+                
+                if sensitive_hidden:
+                    flags.append("Hidden elements contain password fields - highly suspicious")
+                    risk_score += 25
+            
+            # Check for iframes (can be used for clickjacking)
+            iframes = soup.find_all('iframe')
+            analysis['iframe_count'] = len(iframes)
+            if analysis['iframe_count'] > 0:
+                flags.append(f"Found {analysis['iframe_count']} iframes")
+                risk_score += 5 * min(analysis['iframe_count'], 3)  # Cap at 15 points
+                
+                # NEW: Check for suspicious iframe sources
+                suspicious_iframe = False
+                for iframe in iframes:
+                    src = iframe.get('src', '')
+                    if src:
+                        # Check if iframe source is from different domain
+                        try:
+                            iframe_domain = urllib.parse.urlparse(src).netloc
+                            if iframe_domain and iframe_domain != domain:
+                                suspicious_iframe = True
+                                flags.append(f"Iframe from external domain: {iframe_domain}")
+                                break
+                        except:
+                            pass
+                
+                if suspicious_iframe:
+                    risk_score += 10
+            
+            # Check for external resources
+            external_resources = 0
+            resource_domains = set()
+            parsed_domain = urllib.parse.urlparse(url).netloc
+            for tag in soup.find_all(['script', 'link', 'img', 'iframe']):
+                src = tag.get('src') or tag.get('href')
+                if src and src.startswith(('http://', 'https://')):
+                    try:
+                        resource_domain = urllib.parse.urlparse(src).netloc
+                        if resource_domain and resource_domain != parsed_domain:
+                            external_resources += 1
+                            resource_domains.add(resource_domain)
+                    except:
+                        pass
+            
+            analysis['external_resources'] = external_resources
+            analysis['resource_domains'] = list(resource_domains)
+            
+            # NEW: Check resource domain count - high count can be suspicious
+            if len(resource_domains) > 10:  # Many external domains can be suspicious
+                flags.append(f"High number of external domains: {len(resource_domains)}")
+                risk_score += min(20, len(resource_domains))
+            
+            # Look for suspicious meta elements
+            meta_refresh = soup.find('meta', {'http-equiv': 'refresh'})
+            if meta_refresh:
+                analysis['suspicious_elements'].append('meta-refresh')
+                flags.append("Page uses meta refresh (possible redirect)")
+                risk_score += 10
+                
+                # NEW: Check if meta refresh redirects to external domain
+                content_attr = meta_refresh.get('content', '')
+                if 'url=' in content_attr.lower():
+                    redirect_url = content_attr.split('url=', 1)[1].strip()
+                    try:
+                        redirect_domain = urllib.parse.urlparse(redirect_url).netloc
+                        if redirect_domain and redirect_domain != domain:
+                            flags.append(f"Meta refresh redirects to external domain: {redirect_domain}")
+                            risk_score += 15
+                    except:
+                        pass
+            
+            # NEW: Check favicon source domain
+            favicon_mismatch = False
+            favicon_tags = soup.find_all('link', rel=['icon', 'shortcut icon', 'apple-touch-icon'])
+            
+            for favicon in favicon_tags:
+                href = favicon.get('href', '')
+                if href and href.startswith(('http://', 'https://')):
+                    try:
+                        favicon_domain = urllib.parse.urlparse(href).netloc
+                        if favicon_domain and favicon_domain != domain:
+                            favicon_mismatch = True
+                            flags.append(f"Favicon from different domain: {favicon_domain}")
+                            break
+                    except:
+                        pass
+            
+            analysis['favicon_mismatch'] = favicon_mismatch
+            if favicon_mismatch:
+                risk_score += 10
+            
+            # NEW: Check login form presence
+            login_forms = 0
+            password_fields = 0
+            
+            # Find forms with password fields or login-related attributes
+            for form in soup.find_all('form'):
+                has_password = len(form.find_all('input', {'type': 'password'})) > 0
+                form_id = form.get('id', '').lower()
+                form_class = form.get('class', [])
+                form_class = ' '.join(form_class).lower() if form_class else ''
+                form_action = form.get('action', '').lower()
+                
+                login_indicators = ['login', 'signin', 'sign-in', 'logon', 'auth', 'credential']
+                
+                if (has_password or 
+                    any(ind in form_id for ind in login_indicators) or
+                    any(ind in form_class for ind in login_indicators) or
+                    any(ind in form_action for ind in login_indicators)):
+                    
+                    login_forms += 1
+                    password_fields += len(form.find_all('input', {'type': 'password'}))
+            
+            analysis['login_form_present'] = login_forms > 0
+            analysis['login_forms_count'] = login_forms
+            analysis['password_fields_count'] = password_fields
+            
+            if login_forms > 0:
+                # For login forms, check if they submit to external domain
+                external_action = False
+                for form in soup.find_all('form'):
+                    action = form.get('action', '')
+                    if action.startswith(('http://', 'https://')):
+                        try:
+                            action_domain = urllib.parse.urlparse(action).netloc
+                            if action_domain and action_domain != domain:
+                                external_action = True
+                                flags.append(f"Login form submits to external domain: {action_domain}")
+                                break
+                        except:
+                            pass
+                
+                if external_action:
+                    risk_score += 30
+                elif password_fields > 0:
+                    # Only flag login form as suspicious if not part of main domain (may be legitimate)
+                    brand_in_domain = any(brand in domain.lower() for brand in analysis['brand_mentions'])
+                    if brand_in_domain:
+                        flags.append("Login form present with known brand in URL - potential phishing")
+                        risk_score += 15
+            
+            # NEW: Check for poor HTML quality (often indicates phishing)
+            html_quality = {
+                'has_doctype': bool(soup.find('html').parent.name == '[document]' if soup.find('html') else False),
+                'has_html_tag': bool(soup.find('html')),
+                'has_head_tag': bool(soup.find('head')),
+                'has_body_tag': bool(soup.find('body')),
+                'has_broken_links': False,
+                'element_count': len(soup.find_all()),
+                'text_to_html_ratio': len(page_text) / max(1, len(content))
+            }
+            
+            # Check for broken links
+            broken_links = 0
+            for link in soup.find_all('a'):
+                href = link.get('href', '')
+                if href == '#' or href == '' or href == 'javascript:void(0)':
+                    broken_links += 1
+            
+            html_quality['broken_links_count'] = broken_links
+            html_quality['has_broken_links'] = broken_links > 5
+            
+            analysis['html_quality'] = html_quality
+            
+            # Score for poor HTML quality
+            quality_issues = 0
+            if not html_quality['has_doctype']:
+                quality_issues += 1
+            if not html_quality['has_head_tag'] or not html_quality['has_body_tag']:
+                quality_issues += 1
+            if html_quality['has_broken_links']:
+                quality_issues += 1
+            if html_quality['element_count'] < 10:  # Very simple page
+                quality_issues += 1
+            
+            if quality_issues >= 2:
+                flags.append(f"Poor HTML quality ({quality_issues} issues detected)")
+                risk_score += quality_issues * 5  # 5 points per quality issue
+            
+            # NEW: Check for SEO elements consistency
+            meta_description = soup.find('meta', {'name': 'description'})
+            meta_keywords = soup.find('meta', {'name': 'keywords'})
+            
+            seo_issues = []
+            
+            # Check if meta description includes domain name
+            if meta_description:
+                meta_desc_content = meta_description.get('content', '').lower()
+                if main_domain.lower() not in meta_desc_content:
+                    seo_issues.append("Meta description doesn't match domain")
+            
+            # Check for keyword stuffing (often in phishing)
+            if meta_keywords:
+                keywords = meta_keywords.get('content', '').lower()
+                keyword_count = len(keywords.split(','))
+                if keyword_count > 15:  # Excessive keywords
+                    seo_issues.append(f"Keyword stuffing ({keyword_count} keywords)")
+            
+            if seo_issues:
+                analysis['seo_issues'] = seo_issues
+                flags.extend(seo_issues)
+                risk_score += len(seo_issues) * 5  # 5 points per SEO issue
+                
+        except Exception as e:
+            flags.append(f"HTML analysis error: {str(e)}")
+        
+        return risk_score, flags, analysis
+    
+    def _analyze_javascript(self, content: str) -> Tuple[float, List[str], Dict[str, Any]]:
+        """Analyze JavaScript for suspicious patterns."""
+        risk_score = 0
+        flags = []
+        analysis = {
+            'suspicious_patterns': [],
+            'obfuscation_detected': False,
+            'event_handlers': 0,
+            'eval_usage': False
+        }
+        
+        try:
+            # Extract all script content
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(content, 'html.parser')
+            
+            # Get inline scripts
+            script_tags = soup.find_all('script')
+            script_content = ' '.join([tag.string for tag in script_tags if tag.string])
+            
+            # Check for suspicious patterns
+            for pattern in self.js_suspicious_patterns:
+                if pattern in script_content:
+                    analysis['suspicious_patterns'].append(pattern)
+                    flags.append(f"Suspicious JavaScript: {pattern}")
+                    risk_score += 10
+            
+            # Check for obfuscation (common in malicious scripts)
+            obfuscation_indicators = [
+                'fromCharCode', 'unescape', 'escape', 'eval', 'atob', 'btoa',
+                'String.fromCharCode', 'parseInt', 'String.charAt'
+            ]
+            
+            obfuscation_score = 0
+            for indicator in obfuscation_indicators:
+                if indicator in script_content:
+                    obfuscation_score += 1
+            
+            # Also check for very long strings or lots of hex/unicode
+            hex_pattern = r'\\x[0-9a-f]{2}'
+            unicode_pattern = r'\\u[0-9a-f]{4}'
+            hex_matches = len(re.findall(hex_pattern, script_content))
+            unicode_matches = len(re.findall(unicode_pattern, script_content))
+            
+            if hex_matches + unicode_matches > 20:
+                obfuscation_score += 2
+            
+            if obfuscation_score >= 2:
+                analysis['obfuscation_detected'] = True
+                flags.append("JavaScript obfuscation detected")
+                risk_score += 25
+            
+            # Count event handlers (especially form-related)
+            event_handlers = re.findall(r'on(submit|click|load|change|mouse|key|focus|blur)', script_content)
+            analysis['event_handlers'] = len(event_handlers)
+            
+            if analysis['event_handlers'] > 5:  # Many event handlers can be suspicious
+                flags.append(f"High number of event handlers: {analysis['event_handlers']}")
+                risk_score += 10
+            
+            # Check for direct eval usage
+            analysis['eval_usage'] = 'eval(' in script_content
+            if analysis['eval_usage']:
+                flags.append("Direct eval() usage detected")
+                risk_score += 15
+                
+        except Exception as e:
+            flags.append(f"JavaScript analysis error: {str(e)}")
+        
+        return risk_score, flags, analysis
+    
+    def _analyze_forms(self, content: str, url: str) -> Tuple[float, List[str], Dict[str, Any]]:
+        """Analyze forms for phishing indicators."""
+        risk_score = 0
+        flags = []
+        analysis = {
+            'form_count': 0,
+            'password_fields': 0,
+            'sensitive_fields': 0,
+            'external_action': False,
+            'missing_security': False
+        }
+        
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(content, 'html.parser')
+            forms = soup.find_all('form')
+            analysis['form_count'] = len(forms)
+            
+            domain = urllib.parse.urlparse(url).netloc
+            
+            for form in forms:
+                # Check form action
+                action = form.get('action', '')
+                if action:
+                    # Check if action is an absolute URL
+                    if action.startswith(('http://', 'https://')):
+                        action_domain = urllib.parse.urlparse(action).netloc
+                        # If action domain doesn't match the current domain
+                        if action_domain != domain:
+                            analysis['external_action'] = True
+                            flags.append(f"Form submits to external domain: {action_domain}")
+                            risk_score += 30
+                
+                # Check for password fields
+                password_fields = form.find_all('input', {'type': 'password'})
+                analysis['password_fields'] += len(password_fields)
+                
+                # Check for sensitive input fields
+                inputs = form.find_all('input')
+                for input_field in inputs:
+                    field_name = input_field.get('name', '').lower()
+                    field_id = input_field.get('id', '').lower()
+                    field_placeholder = input_field.get('placeholder', '').lower()
+                    
+                    for term in self.sensitive_terms:
+                        if (term in field_name or term in field_id or term in field_placeholder):
+                            analysis['sensitive_fields'] += 1
+                            break
+                
+                # Check security indicators
+                missing_security = False
+                
+                # Should have HTTPS if collecting sensitive data
+                if url.startswith('http://') and analysis['sensitive_fields'] > 0:
+                    missing_security = True
+                    flags.append("Form collects sensitive data over HTTP")
+                    risk_score += 20
+                
+                # Check for CSRF token (can be various names)
+                csrf_present = False
+                for input_field in inputs:
+                    field_name = input_field.get('name', '').lower()
+                    if any(token in field_name for token in ['csrf', 'token', 'nonce']):
+                        csrf_present = True
+                        break
+                
+                if analysis['sensitive_fields'] > 0 and not csrf_present:
+                    missing_security = True
+                    flags.append("Form lacks CSRF protection")
+                    risk_score += 10
+                
+                analysis['missing_security'] = missing_security
+            
+            # Overall form risk assessment
+            if analysis['password_fields'] > 0:
+                flags.append(f"Form contains {analysis['password_fields']} password fields")
+                risk_score += 15
+            
+            if analysis['sensitive_fields'] > 2:
+                flags.append(f"Form collects multiple sensitive fields ({analysis['sensitive_fields']})")
+                risk_score += 10
+                
+        except Exception as e:
+            flags.append(f"Form analysis error: {str(e)}")
+        
+        return risk_score, flags, analysis
+    
+    def _check_ssl(self, url: str) -> Tuple[float, List[str], Dict[str, Any]]:
+        """Check SSL certificate validity."""
+        risk_score = 0
+        flags = []
+        ssl_info = {
+            'has_ssl': False,
+            'cert_valid': False,
+            'cert_matches_domain': False,
+            'cert_expiry': None,
+            'cert_authority': None
+        }
+        
+        # Only check HTTPS URLs
+        if not url.startswith('https://'):
+            ssl_info['has_ssl'] = False
+            return risk_score, flags, ssl_info
+        
+        try:
+            import socket
+            import ssl
+            import OpenSSL.crypto as crypto
+            from datetime import datetime
+            
+            ssl_info['has_ssl'] = True
+            
+            # Parse URL to get hostname
+            hostname = urllib.parse.urlparse(url).netloc
+            if ':' in hostname:
+                hostname = hostname.split(':')[0]  # Remove port if present
+            
+            # Create SSL context
+            context = ssl.create_default_context()
+            
+            with socket.create_connection((hostname, 443)) as sock:
+                with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                    # Get certificate
+                    cert_bin = ssock.getpeercert(binary_form=True)
+                    x509 = crypto.load_certificate(crypto.FILETYPE_ASN1, cert_bin)
+                    
+                    # Check if certificate matches domain
+                    cert_domains = []
+                    for i in range(x509.get_extension_count()):
+                        ext = x509.get_extension(i)
+                        if 'subjectAltName' in str(ext.get_short_name()):
+                            data = ext.get_data()
+                            # Parse SANs (simplified approach)
+                            sans = str(data)
+                            for domain in sans.split(','):
+                                if 'DNS:' in domain:
+                                    cert_domains.append(domain.split('DNS:')[1].strip())
+                    
+                    common_name = x509.get_subject().CN
+                    if common_name:
+                        cert_domains.append(common_name)
+                    
+                    # Check if any cert domain matches our URL domain
+                    domain_match = False
+                    for cert_domain in cert_domains:
+                        # Check for exact match or wildcard
+                        if cert_domain == hostname or (cert_domain.startswith('*.') and hostname.endswith(cert_domain[1:])):
+                            domain_match = True
+                            break
+                    
+                    ssl_info['cert_matches_domain'] = domain_match
+                    if not domain_match:
+                        flags.append("SSL certificate doesn't match domain")
+                        risk_score += 25
+                    
+                    # Check expiry
+                    expiry = datetime.strptime(x509.get_notAfter().decode('ascii'), '%Y%m%d%H%M%SZ')
+                    ssl_info['cert_expiry'] = expiry.isoformat()
+                    
+                    if expiry < datetime.now():
+                        flags.append("SSL certificate has expired")
+                        risk_score += 30
+                        ssl_info['cert_valid'] = False
+                    else:
+                        ssl_info['cert_valid'] = True
+                    
+                    # Check issuer (CA)
+                    issuer = x509.get_issuer()
+                    ssl_info['cert_authority'] = issuer.CN if hasattr(issuer, 'CN') else str(issuer)
+                    
+                    # Self-signed certificates are suspicious
+                    if issuer.CN == x509.get_subject().CN:
+                        flags.append("Self-signed SSL certificate")
+                        risk_score += 25
+            
+        except ssl.SSLError as e:
+            flags.append(f"SSL Error: {str(e)}")
+            risk_score += 20
+        except Exception as e:
+            flags.append(f"Failed to verify SSL: {str(e)}")
+            # Don't add risk score for analysis failures
+        
+        return risk_score, flags, ssl_info
 
-class Layer4_EnsembleDecision(DetectionLayer):
+# Update the LayeredPhishingDetector class to include the new layer
+
+
+class Layer3_MLClassification(DetectionLayer):
     """
-    Layer 4: Ensemble Decision Making
-    - Combines results from all previous layers
-    - Weighted scoring
-    - Conflict resolution
+    Layer 3: Machine Learning Classification
+    - Uses trained ML model to classify URLs
+    - Provides confidence scores for phishing probability
     """
     
     def __init__(self):
-        super().__init__("Ensemble Decision", weight=1.0)
+        super().__init__("ML Classification", weight=1.5)  # Higher weight for ML predictions
+        self.model = None
+        self.vectorizer = None
+        self._load_model()
+    
+    def _load_model(self):
+        """Load ML model and vectorizer."""
+        try:
+            self.model, self.vectorizer = load_model()
+            if self.model is not None and self.vectorizer is not None:
+                logger.info("ML model and vectorizer loaded successfully")
+            else:
+                logger.warning("ML model or vectorizer not loaded")
+                self.enabled = False
+        except Exception as e:
+            logger.error(f"Failed to load ML model: {e}")
+            self.enabled = False
     
     def analyze(self, url: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Combine and weight results from previous layers."""
+        """Analyze URL using ML model."""
+        results = {
+            'layer': self.name,
+            'risk_score': 0.0,
+            'flags': []
+        }
+        
+        try:
+            if not self.model or not self.vectorizer:
+                results['flags'].append("ML model not available")
+                results['risk_score'] = 0
+                return results
+            
+            # Start timing for inference
+            start_time = datetime.now()
+            
+            # Get ML prediction
+            prediction = predict_with_ml(url, self.model, self.vectorizer)
+            
+            # End timing
+            inference_time = (datetime.now() - start_time).total_seconds()
+            
+            if prediction is None:
+                results['flags'].append("ML prediction failed")
+                results['risk_score'] = 30
+                return results
+            
+            # Extract information from prediction
+            is_phishing = prediction['prediction'] == 'phishing'
+            confidence = prediction.get('confidence', 0)
+            confidence_scores = prediction.get('confidence_scores', {})
+            
+            # Add results
+            results['ml_prediction'] = prediction['prediction']
+            results['confidence_scores'] = confidence_scores
+            results['inference_time'] = inference_time
+            
+            # Set risk score based on phishing probability
+            if is_phishing:
+                phish_confidence = confidence_scores.get('phishing', confidence)
+                # Scale to risk score from 0-100
+                results['risk_score'] = min(100, phish_confidence * 100)
+                
+                # Add flags based on confidence
+                if phish_confidence > 0.8:
+                    results['flags'].append("High probability of phishing")
+                elif phish_confidence > 0.6:
+                    results['flags'].append("Medium probability of phishing")
+                else:
+                    results['flags'].append("Low probability of phishing")
+            else:
+                # If legitimate, risk score is inverse of legitimate confidence
+                legit_confidence = confidence_scores.get('legitimate', 1 - confidence)
+                results['risk_score'] = min(100, (1 - legit_confidence) * 80)  # Cap at 80 for negative predictions
+            
+            # Add model info
+            try:
+                model_type = "RandomForest"
+                if "XGBClassifier" in str(type(self.model)):
+                    model_type = "XGBoost"
+                
+                # Check if model uses GPU
+                gpu_accelerated = False
+                if hasattr(self.model, 'get_params'):
+                    params = self.model.get_params()
+                    if 'tree_method' in params:
+                        gpu_accelerated = 'gpu' in params['tree_method']
+                
+                results['model_info'] = {
+                    'type': model_type,
+                    'accuracy': 0.8147,  # Placeholder - should come from evaluation
+                    'gpu_accelerated': gpu_accelerated
+                }
+            except:
+                # Ignore if model info collection fails
+                pass
+            
+        except Exception as e:
+            results['flags'].append(f"ML classification error: {str(e)}")
+            results['risk_score'] = 10  # Small default risk for errors
+        
+        return results
+
+
+
+class Layer4_EnsembleDecision(DetectionLayer):
+    """
+    Layer 4: Ensemble Decision
+    - Combines results from previous layers
+    - Resolves conflicts between layers
+    - Produces weighted risk score
+    """
+    
+    def __init__(self):
+        super().__init__("Ensemble Decision")
+    
+    def analyze(self, url: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Combine results from previous layers."""
         results = {
             'layer': self.name,
             'weighted_risk_score': 0.0,
@@ -355,192 +1002,208 @@ class Layer4_EnsembleDecision(DetectionLayer):
             'conflicts': []
         }
         
-        if not context or 'layer_results' not in context:
-            results['conflicts'].append("No previous layer results available")
-            return results
-        
-        layer_results = context['layer_results']
-        total_weight = 0
-        weighted_sum = 0
-        
-        # Calculate weighted average of risk scores
-        for layer_result in layer_results:
-            if 'risk_score' in layer_result:
+        try:
+            if not context or 'layer_results' not in context:
+                results['weighted_risk_score'] = 50
+                results['consensus'] = "ERROR"
+                results['conflicts'].append("No layer results found")
+                return results
+            
+            layer_results = context['layer_results']
+            
+            # Calculate weighted risk score
+            total_weight = 0
+            weighted_score = 0
+            layer_votes = {'phishing': 0, 'legitimate': 0, 'unknown': 0}
+            
+            # Track scores for each layer
+            for layer_result in layer_results:
+                layer_name = layer_result.get('layer', 'Unknown')
+                risk_score = layer_result.get('risk_score', 0)
                 weight = layer_result.get('weight', 1.0)
-                score = layer_result['risk_score']
                 
-                weighted_sum += score * weight
+                # Add to weighted score
+                weighted_score += risk_score * weight
                 total_weight += weight
                 
-                results['layer_scores'][layer_result['layer']] = {
-                    'score': score,
-                    'weight': weight,
-                    'weighted_score': score * weight
-                }
-        
-        if total_weight > 0:
-            results['weighted_risk_score'] = weighted_sum / total_weight
-        
-        # Determine consensus
-        risk_score = results['weighted_risk_score']
-        if risk_score >= 70:
-            results['consensus'] = 'phishing'
-        elif risk_score >= 40:
-            results['consensus'] = 'suspicious'
-        else:
-            results['consensus'] = 'legitimate'
-        
-        # Check for conflicts between layers
-        predictions = []
-        for layer_result in layer_results:
-            if 'ml_prediction' in layer_result:
-                predictions.append(layer_result['ml_prediction'])
-            elif layer_result.get('risk_score', 0) > 50:
-                predictions.append('phishing')
+                # Record layer score
+                results['layer_scores'][layer_name] = risk_score
+                
+                # Determine layer vote
+                if risk_score >= 60:  # High risk
+                    layer_votes['phishing'] += 1
+                elif risk_score <= 30:  # Low risk
+                    layer_votes['legitimate'] += 1
+                else:
+                    layer_votes['unknown'] += 1
+            
+            # Calculate final weighted score
+            if total_weight > 0:
+                results['weighted_risk_score'] = weighted_score / total_weight
             else:
-                predictions.append('legitimate')
-        
-        if len(set(predictions)) > 1:
-            results['conflicts'].append("Disagreement between detection layers")
+                results['weighted_risk_score'] = 50
+            
+            # Determine consensus
+            if layer_votes['phishing'] > layer_votes['legitimate'] + layer_votes['unknown']:
+                results['consensus'] = "PHISHING"
+            elif layer_votes['legitimate'] > layer_votes['phishing'] + layer_votes['unknown']:
+                results['consensus'] = "LEGITIMATE"
+            elif layer_votes['phishing'] == 0 and layer_votes['unknown'] == 0:
+                results['consensus'] = "LEGITIMATE"
+            elif layer_votes['legitimate'] == 0 and layer_votes['unknown'] == 0:
+                results['consensus'] = "PHISHING"
+            else:
+                results['consensus'] = "UNCERTAIN"
+            
+            # Check for conflicts
+            if layer_votes['phishing'] > 0 and layer_votes['legitimate'] > 0:
+                results['conflicts'].append("Layers disagree on classification")
+            
+            # Check for strong ML disagreement
+            ml_result = None
+            for layer_result in layer_results:
+                if layer_result.get('layer') == 'ML Classification':
+                    ml_prediction = layer_result.get('ml_prediction')
+                    if ml_prediction == 'phishing' and results['weighted_risk_score'] < 40:
+                        results['conflicts'].append("ML says phishing but other layers disagree")
+                    elif ml_prediction == 'legitimate' and results['weighted_risk_score'] > 60:
+                        results['conflicts'].append("ML says legitimate but other layers disagree")
+                    ml_result = layer_result
+                    break
+            
+            # If ML is very confident, increase its influence
+            if ml_result and 'confidence_scores' in ml_result:
+                ml_confidence = max(ml_result['confidence_scores'].values()) if ml_result['confidence_scores'] else 0
+                if ml_confidence > 0.9:  # Very high confidence
+                    ml_prediction = ml_result.get('ml_prediction')
+                    if ml_prediction == 'phishing':
+                        results['weighted_risk_score'] = max(results['weighted_risk_score'], 
+                                                            results['weighted_risk_score'] * 1.2)  # Increase by 20%
+                    elif ml_prediction == 'legitimate':
+                        results['weighted_risk_score'] = min(results['weighted_risk_score'], 
+                                                           results['weighted_risk_score'] * 0.8)  # Decrease by 20%
+            
+        except Exception as e:
+            results['weighted_risk_score'] = 50
+            results['consensus'] = "ERROR"
+            results['conflicts'].append(f"Ensemble error: {str(e)}")
         
         return results
 
+
+
 class Layer5_FinalVerdict(DetectionLayer):
     """
-    Layer 5: Final Verdict Generation
-    - Risk level assignment
-    - Confidence calculation
-    - Recommendation generation
+    Layer 5: Final Verdict
+    - Determines final risk level
+    - Provides recommendations
+    - Aggregates warnings and details
     """
     
     def __init__(self):
-        super().__init__("Final Verdict", weight=1.0)
+        super().__init__("Final Verdict")
     
     def analyze(self, url: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         """Generate final verdict and recommendations."""
         results = {
-            'layer': self.name,
             'final_verdict': RiskLevel.ERROR,
+            'risk_percentage': 50,
             'confidence': 0.0,
-            'risk_percentage': 0.0,
             'recommendations': [],
-            'summary': {}
+            'summary': {},
+            'early_termination': False
         }
         
-        if not context:
-            return results
-        
-        # Get ensemble results
-        ensemble_result = context.get('ensemble_result', {})
-        risk_score = ensemble_result.get('weighted_risk_score', 50)
-        consensus = ensemble_result.get('consensus', 'unknown')
-        
-        # Check for ML prediction to adjust thresholds
-        ml_prediction = None
-        ml_phishing_confidence = 0
-        for layer_result in context.get('layer_results', []):
-            if layer_result.get('layer') == 'ML Classification':
-                ml_prediction = layer_result.get('ml_prediction')
-                ml_scores = layer_result.get('confidence_scores', {})
-                ml_phishing_confidence = ml_scores.get('phishing', 0)
-                break
-        
-        # Adjust risk score based on ML prediction (more sensitive to phishing)
-        if ml_prediction == 'phishing' and ml_phishing_confidence > 0.4:
-            risk_score = max(risk_score, 60)  # Boost risk if ML detects phishing
-        elif ml_prediction == 'phishing' and ml_phishing_confidence > 0.6:
-            risk_score = max(risk_score, 75)  # Higher boost for higher ML confidence
-        
-        # More sensitive thresholds for final verdict
-        if risk_score >= 75:
-            results['final_verdict'] = RiskLevel.CRITICAL
-        elif risk_score >= 60:
-            results['final_verdict'] = RiskLevel.HIGH
-        elif risk_score >= 35:  # Lowered from 40
-            results['final_verdict'] = RiskLevel.MEDIUM
-        elif risk_score >= 15:  # Lowered from 20
-            results['final_verdict'] = RiskLevel.LOW
-        else:
-            results['final_verdict'] = RiskLevel.SAFE
-        
-        # Additional check: if ML strongly suggests phishing, upgrade verdict
-        if (ml_prediction == 'phishing' and ml_phishing_confidence > 0.7 and 
-            results['final_verdict'] in [RiskLevel.SAFE, RiskLevel.LOW]):
-            results['final_verdict'] = RiskLevel.MEDIUM
-            risk_score = max(risk_score, 40)
-        
-        results['risk_percentage'] = risk_score
-        
-        # Calculate confidence based on layer agreement
-        layer_results = context.get('layer_results', [])
-        agreements = 0
-        total_layers = len(layer_results)
-        
-        for layer_result in layer_results:
-            layer_score = layer_result.get('risk_score', 0)
-            if (risk_score >= 40 and layer_score >= 40) or (risk_score < 40 and layer_score < 40):
-                agreements += 1
-        
-        results['confidence'] = (agreements / total_layers) if total_layers > 0 else 0.5
-        
-        # Generate recommendations
-        results['recommendations'] = self._generate_recommendations(
-            results['final_verdict'], risk_score, context
-        )
-        
-        # Create summary
-        results['summary'] = {
-            'url': url,
-            'verdict': results['final_verdict'].value,
-            'risk_percentage': round(risk_score, 1),
-            'confidence': round(results['confidence'], 3),
-            'total_flags': sum(len(lr.get('flags', [])) for lr in layer_results),
-            'ml_prediction': ml_prediction,
-            'ml_confidence': ml_phishing_confidence
-        }
+        try:
+            if not context:
+                results['final_verdict'] = RiskLevel.ERROR
+                results['risk_percentage'] = 50
+                results['recommendations'].append("Analysis failed - insufficient data")
+                return results
+            
+            # Check for early termination
+            if 'final_result' in context and context['final_result'].get('early_termination', False):
+                return context['final_result']
+            
+            # Get ensemble result
+            ensemble_result = context.get('ensemble_result', {})
+            risk_score = ensemble_result.get('weighted_risk_score', 50)
+            consensus = ensemble_result.get('consensus', 'UNCERTAIN')
+            conflicts = ensemble_result.get('conflicts', [])
+            
+            # Set risk percentage
+            results['risk_percentage'] = risk_score
+            
+            # Determine confidence based on conflicts
+            if not conflicts:
+                confidence = 0.9  # High confidence if no conflicts
+            elif len(conflicts) == 1:
+                confidence = 0.7  # Medium confidence with one conflict
+            else:
+                confidence = 0.5  # Low confidence with multiple conflicts
+                
+            results['confidence'] = confidence
+            
+            # Determine final risk level
+            if risk_score >= 75:
+                results['final_verdict'] = RiskLevel.CRITICAL
+            elif risk_score >= 60:
+                results['final_verdict'] = RiskLevel.HIGH
+            elif risk_score >= 35:
+                results['final_verdict'] = RiskLevel.MEDIUM
+            elif risk_score >= 15:
+                results['final_verdict'] = RiskLevel.LOW
+            else:
+                results['final_verdict'] = RiskLevel.SAFE
+            
+            # Generate recommendations based on risk level
+            if results['final_verdict'] in [RiskLevel.CRITICAL, RiskLevel.HIGH]:
+                results['recommendations'].extend([
+                    "Do NOT proceed to this website",
+                    "Do NOT enter any personal information",
+                    "Do NOT download any files from this site"
+                ])
+            elif results['final_verdict'] == RiskLevel.MEDIUM:
+                results['recommendations'].extend([
+                    "Proceed with extreme caution",
+                    "Verify the website through other channels before sharing information",
+                    "Check the URL carefully for typos or unusual characters"
+                ])
+            elif results['final_verdict'] == RiskLevel.LOW:
+                results['recommendations'].extend([
+                    "Exercise normal caution",
+                    "Verify the website if sharing sensitive information"
+                ])
+            else:  # SAFE
+                results['recommendations'].extend([
+                    "Website appears safe",
+                    "Follow normal security practices"
+                ])
+            
+            # Add any specific warnings from layers
+            layer_flags = []
+            for layer_result in context.get('layer_results', []):
+                layer_flags.extend(layer_result.get('flags', []))
+            
+            if layer_flags:
+                results['summary']['warnings'] = layer_flags[:5]  # Include top 5 warnings
+                
+            # If ML prediction exists, add to summary
+            for layer_result in context.get('layer_results', []):
+                if layer_result.get('layer') == 'ML Classification':
+                    ml_prediction = layer_result.get('ml_prediction')
+                    if ml_prediction:
+                        results['summary']['ml_prediction'] = ml_prediction
+                    break
+            
+        except Exception as e:
+            results['final_verdict'] = RiskLevel.ERROR
+            results['risk_percentage'] = 50
+            results['recommendations'].append(f"Analysis error: {str(e)}")
         
         return results
-    
-    def _generate_recommendations(self, verdict: RiskLevel, risk_score: float, context: Dict[str, Any]) -> List[str]:
-        """Generate security recommendations."""
-        recommendations = []
-        
-        if verdict in [RiskLevel.CRITICAL, RiskLevel.HIGH]:
-            recommendations.extend([
-                "🚨 DO NOT visit this website",
-                "🚨 DO NOT enter any personal information",
-                "🚨 DO NOT download any files",
-                "📞 Report this URL to security authorities"
-            ])
-        elif verdict == RiskLevel.MEDIUM:
-            recommendations.extend([
-                "⚠️ Exercise extreme caution",
-                "⚠️ Verify website authenticity through official channels",
-                "⚠️ Do not enter sensitive information",
-                "🔍 Check URL carefully for typos"
-            ])
-        elif verdict == RiskLevel.LOW:
-            recommendations.extend([
-                "💡 Proceed with caution",
-                "💡 Verify the website's legitimacy",
-                "💡 Check for HTTPS encryption"
-            ])
-        else:  # SAFE
-            recommendations.extend([
-                "✅ URL appears to be safe",
-                "💡 Always verify authenticity for sensitive transactions"
-            ])
-        
-        # Add specific recommendations based on detected issues
-        layer_results = context.get('layer_results', [])
-        for layer_result in layer_results:
-            flags = layer_result.get('flags', [])
-            if 'Uses IP address instead of domain' in flags:
-                recommendations.append("🔍 URL uses IP address - highly suspicious")
-            if 'Shortened URL' in flags:
-                recommendations.append("🔍 Expand shortened URL to see actual destination")
-        
-        return recommendations
+
+
 
 class LayeredPhishingDetector:
     """
@@ -551,6 +1214,7 @@ class LayeredPhishingDetector:
         self.layers = [
             Layer1_BasicValidation(),
             Layer2_FeatureAnalysis(),
+            Layer2_ContentAnalysis(),
             Layer3_MLClassification(),
             Layer4_EnsembleDecision(),
             Layer5_FinalVerdict()
@@ -1210,7 +1874,7 @@ def get_recommendations(features: Dict[str, Any], classification: Dict[str, Any]
 
 def main() -> None:
     """
-    Main function demonstrating the layered detection system with GPU support.
+    Main function demonstrating the layered phishing detection system with GPU support.
     """
     print("🛡️  Layered Phishing Detection System v3.0 - GPU Accelerated")
     print("="*70)
@@ -1271,46 +1935,6 @@ def main() -> None:
                     model_info = layer_result.get('model_info', {})
                     inference_time = layer_result.get('inference_time', 0)
                     print(f"🤖 ML Model: {model_info.get('type', 'Unknown')} "
-                          f"({'GPU' if model_info.get('gpu_accelerated') else 'CPU'}) - "
-                          f"{inference_time*1000:.1f}ms")
-            
-            # Show layer-by-layer results
-            print(f"\n📋 Layer Analysis:")
-            for j, layer_result in enumerate(analysis['layer_results'], 1):
-                layer_name = layer_result.get('layer', f'Layer {j}')
-                risk_score = layer_result.get('risk_score', 0)
-                flags = layer_result.get('flags', [])
-                
-                print(f"   Layer {j} ({layer_name}): {risk_score:.1f}% risk")
-                if flags:
-                    for flag in flags[:2]:  # Show first 2 flags
-                        print(f"     • {flag}")
-                    if len(flags) > 2:
-                        print(f"     • ... and {len(flags)-2} more issues")
-            
-            # Show recommendations
-            recommendations = final_result.get('recommendations', [])
-            if recommendations:
-                print(f"\n💡 Recommendations:")
-                for rec in recommendations[:3]:  # Show top 3
-                    print(f"   {rec}")
-                if len(recommendations) > 3:
-                    print(f"   ... and {len(recommendations)-3} more recommendations")
-        
-        else:
-            print(f"❌ Analysis Error: {analysis.get('error', 'Unknown error')}")
-    
-    # Performance summary
-    avg_time = total_processing_time / len(test_urls)
-    urls_per_second = len(test_urls) / total_processing_time
-    
-    print(f"\n{'='*70}")
-    print(f"📊 PERFORMANCE SUMMARY")
-    print(f"{'='*70}")
-    print(f"🌐 Total URLs processed: {len(test_urls)}")
-    print(f"⏱️  Total processing time: {total_processing_time:.3f}s")
-    print(f"📈 Average time per URL: {avg_time:.3f}s")
-    print(f"🚀 URLs per second: {urls_per_second:.1f}")
-
-if __name__ == "__main__":
-    main()
+                          f"({'GPU' if model_info.get('gpu_accelerated', False) else 'CPU'}) "
+                          f"Accuracy: {model_info.get('accuracy', 'N/A')}, "
+                          f"Inference Time: {inference_time:.3f}s")

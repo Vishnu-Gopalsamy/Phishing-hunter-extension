@@ -1,75 +1,75 @@
 # 🛡️ Layered Phishing Detection System
 
-A sophisticated, multi-layered phishing URL detection system powered by machine learning and rule-based analysis, featuring a dramatic Chrome extension interface.
+A comprehensive phishing URL detection system with machine learning capabilities and a dramatic Chrome extension interface.
 
-![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
-![Flask](https://img.shields.io/badge/Flask-2.0+-green.svg)
-![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-yellow.svg)
-![Machine Learning](https://img.shields.io/badge/ML-RandomForest%2FXGBoost-orange.svg)
-![Accuracy](https://img.shields.io/badge/Accuracy-81.47%25-brightgreen.svg)
+## Features
 
-## 🚀 Features
+- **5-Layer Detection System**: Advanced detection through multiple analysis layers
+- **Machine Learning Model**: 81.47% accuracy using RandomForest/XGBoost
+- **GPU Acceleration**: Supports CUDA for faster processing
+- **Dramatic UI**: Cyberpunk-style Chrome extension interface
+- **Real-time Analysis**: Analyze URLs through a simple API server
 
-### Core Detection System
-- **5-Layer Analysis Pipeline**: Progressive detection through multiple sophisticated layers
-- **Machine Learning Models**: RandomForest/XGBoost with 81.47% accuracy
-- **GPU Acceleration**: CUDA support for faster training and inference
-- **Real-time Analysis**: Sub-second URL analysis
-- **Feature Extraction**: 11+ advanced URL and domain features
+## Components
 
-### Chrome Extension
-- **Dramatic UI**: Cyberpunk-inspired interface with animations
-- **Real-time Protection**: Instant analysis of visited websites
-- **Visual Risk Assessment**: Animated risk bars and threat indicators
-- **Layer-by-Layer Results**: Detailed breakdown of detection analysis
-- **Smart Notifications**: Context-aware security recommendations
+- **Core Detector**: Layered detection system in `phishing_detector.py`
+- **Training Module**: Model training in `training/train.py`
+- **API Server**: Flask-based REST API in `api_server.py`
+- **Chrome Extension**: Browser integration in `chrome_extension/`
 
-### API Server
-- **RESTful API**: Flask-based server with CORS support
-- **Multiple Endpoints**: Simple and detailed analysis options
-- **Health Monitoring**: System status and performance metrics
-- **Error Handling**: Robust error handling and logging
+## Setup Instructions
 
-## 🏗️ Architecture
+1. Install dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
+2. Train the model (optional - pre-trained model included):
+    ```bash
+    python training/train.py
+    ```
+
+3. Run the API server:
+    ```bash
+    python api_server.py
+    ```
+
+4. Load the Chrome extension:
+   - Open Chrome and go to `chrome://extensions/`
+   - Enable Developer mode
+   - Click "Load unpacked" and select the `chrome_extension` folder
+
+## System Architecture
+
+The system uses a 5-layer approach:
+
+1. **Basic Validation**: URL format and pattern checks
+2. **Feature Analysis**: Domain features and URL structure analysis
+3. **ML Classification**: Machine learning prediction (RandomForest/XGBoost)
+4. **Ensemble Decision**: Weighted combination of all analyses
+5. **Final Verdict**: Risk assessment and recommendations
+
+## API Usage
+
+```python
+from phishing_detector import LayeredPhishingDetector
+
+detector = LayeredPhishingDetector()
+result = detector.analyze_url("https://example.com")
+verdict = result['final_result']['final_verdict']
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Chrome Extension                         │
-│  ┌─────────────────┐ ┌─────────────────┐ ┌───────────────┐ │
-│  │   Dramatic UI   │ │  Risk Analyzer  │ │  Notifications │ │
-│  └─────────────────┘ └─────────────────┘ └───────────────┘ │
-└─────────────────────────────┬───────────────────────────────┘
-                              │ HTTP API
-┌─────────────────────────────▼───────────────────────────────┐
-│                     Flask API Server                        │
-│  ┌─────────────────┐ ┌─────────────────┐ ┌───────────────┐ │
-│  │   /check_url    │ │ /analyze_detailed│ │    /health    │ │
-│  └─────────────────┘ └─────────────────┘ └───────────────┘ │
-└─────────────────────────────┬───────────────────────────────┘
-                              │
-┌─────────────────────────────▼───────────────────────────────┐
-│                Layered Detection Engine                     │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌────────┐ │
-│  │   Layer 1   │ │   Layer 2   │ │   Layer 3   │ │ Layer  │ │
-│  │   Basic     │ │  Feature    │ │     ML      │ │ 4 & 5  │ │
-│  │ Validation  │ │  Analysis   │ │ Classification│ │Final   │ │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
 
-## 📋 Detection Layers
+## Project Structure
 
-### Layer 1: Basic Validation
-- URL format validation
-- Malicious pattern detection  
-- Quick blacklist checks
-- Protocol verification
-- **Weight**: 0.8x
+- `phishing_detector.py`: Main detection engine
+- `api_server.py`: REST API interface
+- `training/train.py`: Model training script
+- `models/`: Saved ML models and vectorizers
+- `chrome_extension/`: Browser integration files
 
-### Layer 2: Feature Analysis
-- 11+ URL and domain features
-- WHOIS data analysis
-- DNS record verification
+## License
+
+MIT License
 - Subdomain analysis
 - **Weight**: 1.0x
 
@@ -79,6 +79,14 @@ A sophisticated, multi-layered phishing URL detection system powered by machine 
 - GPU-accelerated inference
 - Confidence scoring
 - **Weight**: 1.5x (Enhanced for better phishing detection)
+
+### Layer 6: Website Content Analysis
+- HTML content scanning
+- JavaScript pattern detection
+- Form behavior analysis
+- SSL certificate validation
+- Data forwarding detection
+- **Weight**: 1.3x (NEW - Advanced threat detection)
 
 ### Layer 4: Ensemble Decision
 - Weighted scoring from all layers
@@ -330,6 +338,10 @@ pip install xgboost[gpu]
 - **Typosquatting**: Similar-looking domains
 - **New Domains**: Recently registered domains
 - **SSL Certificate Issues**: Invalid/missing certificates
+- **Website Content Analysis**: Real-time HTML/JS scanning
+- **Form Data Forwarding**: Detection of external data submission
+- **Code Obfuscation**: JavaScript obfuscation detection
+- **Phishing Keywords**: Content-based phishing detection
 
 ### Privacy Protection
 - **Local Processing**: No data sent to third parties
@@ -394,4 +406,4 @@ For support, email support@phishing-detection.com or create an issue on GitHub.
 ---
 
 **⚠️ Disclaimer**: This tool is for educational and research purposes. Always verify suspicious URLs through multiple sources and follow your organization's security policies.
-"# Phishing-hunter-extension" 
+"# Phishing-hunter-extension"
