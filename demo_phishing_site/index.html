@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Banking Login - National Bank</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏦</text></svg>">
+</head>
+<body>
+    <!-- Warning Banner for Educational Purpose -->
+    <div class="warning-banner">
+        ⚠️ EDUCATIONAL DEMO - This is a fake phishing site for testing purposes only! ⚠️
+    </div>
+
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <img src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏦</text></svg>" alt="Bank Logo">
+                <span class="logo-text">SecureBank</span>
+            </div>
+            <nav class="nav">
+                <a href="#" class="nav-link">Personal</a>
+                <a href="#" class="nav-link">Business</a>
+                <a href="#" class="nav-link">Investments</a>
+                <a href="#" class="nav-link">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <!-- Urgent Security Alert (Common phishing tactic) -->
+            <div class="alert-box">
+                <div class="alert-icon">🚨</div>
+                <div class="alert-content">
+                    <h3>URGENT: Security Alert</h3>
+                    <p>We have detected suspicious activity on your account. Please verify your credentials immediately to prevent account suspension.</p>
+                    <div class="countdown">Session expires in: <span id="countdown">05:00</span></div>
+                </div>
+            </div>
+
+            <div class="login-section">
+                <div class="login-info">
+                    <h1>Secure Online Banking</h1>
+                    <p>Access your account safely and securely.</p>
+                    <div class="features">
+                        <div class="feature">
+                            <span class="feature-icon">🔒</span>
+                            <span>256-bit SSL Encryption</span>
+                        </div>
+                        <div class="feature">
+                            <span class="feature-icon">🛡️</span>
+                            <span>Multi-Factor Authentication</span>
+                        </div>
+                        <div class="feature">
+                            <span class="feature-icon">⚡</span>
+                            <span>Instant Transfers</span>
+                        </div>
+                    </div>
+
+                    <div class="trust-badges">
+                        <div class="badge">FDIC Insured</div>
+                        <div class="badge">BBB A+ Rating</div>
+                        <div class="badge">ISO 27001</div>
+                    </div>
+                </div>
+
+                <div class="login-form-container">
+                    <form class="login-form" id="loginForm">
+                        <div class="form-group">
+                            <label for="username">Username or Email</label>
+                            <input type="text" id="username" name="username" required 
+                                   placeholder="Enter your username">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" name="password" required 
+                                   placeholder="Enter your password">
+                            <div class="password-toggle">
+                                <button type="button" onclick="togglePassword()">👁️</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="security-code">Security Code</label>
+                            <input type="text" id="security-code" name="security-code" required 
+                                   placeholder="6-digit code from your device">
+                            <small>Enter the code from your SecureBank mobile app</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ssn">Social Security Number (Verification)</label>
+                            <input type="text" id="ssn" name="ssn" required 
+                                   placeholder="XXX-XX-XXXX">
+                            <small>Required for additional security verification</small>
+                        </div>
+
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="remember" name="remember">
+                            <label for="remember">Remember this device for 30 days</label>
+                        </div>
+
+                        <button type="submit" class="login-btn">
+                            <span class="btn-text">Secure Login</span>
+                            <span class="btn-icon">🔐</span>
+                        </button>
+
+                        <div class="form-links">
+                            <a href="#" class="link">Forgot Username?</a>
+                            <a href="#" class="link">Forgot Password?</a>
+                            <a href="#" class="link">Unlock Account</a>
+                        </div>
+                    </form>
+                    <div class="security-notice">
+                        <div class="notice-icon">🔒</div>
+                        <div class="notice-text">
+                            <strong>Security Notice:</strong> We will never ask for your full SSN via email.
+                            Always verify you're on the correct website before entering personal information.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Quick Links</h4>
+                    <a href="#">Account Summary</a>
+                    <a href="#">Transfer Money</a>
+                    <a href="#">Pay Bills</a>
+                    <a href="#">Mobile App</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Security</h4>
+                    <a href="#">Security Center</a>
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Report Fraud</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Contact</h4>
+                    <a href="#">1-800-555-BANK</a>
+                    <a href="#">Find ATM/Branch</a>
+                    <a href="#">Customer Service</a>
+                    <a href="#">Schedule Appointment</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 SecureBank. All rights reserved. Member FDIC. Equal Housing Lender.</p>
+                <div class="fake-ssl">
+                    <span class="ssl-icon">🔒</span>
+                    <span>256-bit SSL Secured</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
