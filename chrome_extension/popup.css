@@ -1,0 +1,117 @@
+/* ...existing styles... */
+
+.error-content {
+  text-align: center;
+  padding: 15px;
+}
+
+.error-content h3 {
+  color: #d32f2f;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.error-actions {
+  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.retry-btn, .help-btn, .back-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.retry-btn {
+  background-color: #4caf50;
+  color: white;
+}
+
+.retry-btn:hover {
+  background-color: #45a049;
+}
+
+.help-btn {
+  background-color: #2196f3;
+  color: white;
+}
+
+.help-btn:hover {
+  background-color: #1976d2;
+}
+
+.back-btn {
+  background-color: #757575;
+  color: white;
+}
+
+.back-btn:hover {
+  background-color: #616161;
+}
+
+.help-content {
+  text-align: left;
+  padding: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.help-content h3 {
+  color: #2196f3;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.help-content h4 {
+  color: #333;
+  margin: 10px 0 5px 0;
+  font-size: 14px;
+}
+
+.help-content p {
+  margin: 3px 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.help-content code {
+  background-color: #f1f1f1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.help-content a {
+  color: #2196f3;
+  text-decoration: none;
+}
+
+.help-content a:hover {
+  text-decoration: underline;
+}
+
+.help-steps {
+  margin-bottom: 15px;
+}
+
+/* Loading improvements */
+#loading {
+  text-align: center;
+  padding: 20px;
+}
+
+#loading img {
+  opacity: 0.8;
+}
+
+#loading p {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #666;
+}

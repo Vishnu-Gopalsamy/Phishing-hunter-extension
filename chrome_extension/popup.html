@@ -672,6 +672,56 @@
       .warning-detail {
         color: #d32f2f;
       }
+      
+      .verified-badge {
+        background-color: #e8f5e9;
+        border-left: 4px solid #43a047;
+        padding: 8px 10px;
+        margin: 10px 0;
+        font-weight: bold;
+        color: #2e7d32;
+        display: flex;
+        align-items: center;
+      }
+      
+      .verified-badge::before {
+        content: '✓';
+        font-size: 16px;
+        margin-right: 8px;
+      }
+      
+      .likely-legitimate-badge {
+        background-color: #e3f2fd;
+        border-left: 4px solid #2196F3;
+        padding: 8px 10px;
+        margin: 10px 0;
+        font-weight: bold;
+        color: #0D47A1;
+        display: flex;
+        align-items: center;
+      }
+      
+      .likely-legitimate-badge::before {
+        content: '✓';
+        font-size: 16px;
+        margin-right: 8px;
+        color: #2196F3;
+      }
+      
+      .brand-info {
+        background-color: #e3f2fd;
+        padding: 8px 10px;
+        margin-top: 10px;
+        border-radius: 4px;
+        font-size: 13px;
+      }
+      
+      .safe-info {
+        color: #2e7d32;
+        font-weight: normal;
+        margin-top: 8px;
+        font-size: 13px;
+      }
     </style>
   </head>
   <body>

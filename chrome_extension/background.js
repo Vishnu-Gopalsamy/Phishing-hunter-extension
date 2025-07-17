@@ -118,3 +118,67 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // Add badge text to show detection system status
 chrome.action.setBadgeText({text: "AI"});
 chrome.action.setBadgeBackgroundColor({color: "#667eea"});
+
+// Complete the background.js with enhanced download protection
+chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
+  console.log('Download intercepted:', downloadItem);
+  
+  if (!DOWNLOAD_PROTECTION_CONFIG.enabled) {
+    suggest();
+    return;
+  }
+  
+  // Store download for analysis
+  const downloadId = downloadItem.id;
+  pendingDownloads.set(downloadId, {
+    item: downloadItem,
+    suggest: suggest,
+    timestamp: Date.now()
+  });
+  
+  // Analyze the download
+  analyzeDownload(downloadItem, suggest);
+});
+
+// Add real-time URL monitoring
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'loading' && changeInfo.url) {
+    // Quick analysis of new URLs
+    performQuickThreatCheck(changeInfo.url, tabId);
+  }
+});
+
+// Real-time phishing detection for form submissions
+chrome.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    if (details.method === 'POST' && details.requestBody) {
+      // Check if sensitive data is being submitted to suspicious domains
+      checkFormSubmission(details);
+    }
+  },
+  { urls: ["<all_urls>"] },
+  ["requestBody"]
+);
+
+// Enhanced notification system
+function showAdvancedNotification(type, data) {
+  const notifications = {
+    'phishing_detected': {
+      title: '🚨 Phishing Site Detected',
+      message: `Blocked access to suspicious site: ${data.domain}`,
+      iconUrl: 'icons/warning.png'
+    },
+    'download_blocked': {
+      title: '🛡️ Dangerous Download Blocked',
+      message: `Prevented download of ${data.filename}`,
+      iconUrl: 'icons/shield.png'
+    },
+    'credential_theft': {
+      title: '⚠️ Credential Theft Attempt',
+      message: 'Login form detected on suspicious site',
+      iconUrl: 'icons/alert.png'
+    }
+  };
+  
+  chrome.notifications.create(notifications[type]);
+}

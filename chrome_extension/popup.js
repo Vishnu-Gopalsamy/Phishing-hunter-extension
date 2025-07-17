@@ -10,58 +10,129 @@ document.addEventListener('DOMContentLoaded', async () => {
   const riskText = document.getElementById('riskText');
   const sourceCodeAnalysisDiv = document.getElementById('sourceCodeAnalysis');
   
+  // Log elements for debugging
+  console.log("Element references:", {
+    loading,
+    result,
+    errorDiv,
+    statusIcon,
+    statusText,
+    reason,
+    details,
+    riskBar,
+    riskText,
+    sourceCodeAnalysisDiv
+  });
+  
   // Replace problematic character at position 1457 with standard quotes
   function showError(msg) {
-    loading.style.display = 'none';
-    result.style.display = 'none';
-    errorDiv.style.display = 'block';
-    errorDiv.textContent = msg;
+    if (loading) loading.style.display = 'none';
+    if (result) result.style.display = 'none';
+    if (errorDiv) {
+      errorDiv.style.display = 'block';
+      errorDiv.textContent = msg;
+    } else {
+      console.error('Error:', msg);
+    }
   }
 
   function showLoading() {
-    loading.style.display = 'block';
-    result.style.display = 'none';
-    errorDiv.style.display = 'none';
+    if (loading) loading.style.display = 'block';
+    if (result) result.style.display = 'none';
+    if (errorDiv) errorDiv.style.display = 'none';
   }
 
   function showResult(data) {
-    loading.style.display = 'none';
-    result.style.display = 'block';
-    errorDiv.style.display = 'none';
-    
-    const isSafe = data.safe;
-    
-    if (isSafe) {
-      statusIcon.textContent = '✅';
-      statusText.textContent = 'Safe';
-      statusText.className = 'status-safe';
-    } else {
-      statusIcon.textContent = '⚠️';
-      statusText.textContent = 'Warning';
-      statusText.className = 'status-warning';
+    if (!data) {
+      showError('Invalid or empty response data');
+      return;
     }
     
-    reason.textContent = data.reason || 'No details available';
+    if (loading) loading.style.display = 'none';
+    if (result) result.style.display = 'block';
+    if (errorDiv) errorDiv.style.display = 'none';
+    
+    const isSafe = data.safe;
+    const isLegitimateWebsite = data.is_legitimate_brand;
+    
+    if (isSafe) {
+      if (statusIcon) statusIcon.textContent = '✅';
+      if (statusText) {
+        statusText.textContent = isLegitimateWebsite ? 'Legitimate Brand' : 'Safe';
+        statusText.className = 'status-safe';
+      }
+    } else {
+      if (statusIcon) statusIcon.textContent = '⚠️';
+      if (statusText) {
+        statusText.textContent = 'Warning';
+        statusText.className = 'status-warning';
+      }
+    }
+    
+    if (reason) reason.textContent = data.reason || 'No details available';
     
     // Set risk level bar
     const riskPercentage = data.risk_percentage || 0;
-    riskBar.style.width = `${riskPercentage}%`;
-    riskText.textContent = `${Math.round(riskPercentage)}%`;
+    if (riskBar) riskBar.style.width = `${riskPercentage}%`;
+    if (riskText) riskText.textContent = `${Math.round(riskPercentage)}%`;
     
-    // Set color based on risk
-    if (riskPercentage > 75) {
-      riskBar.className = 'risk-fill high-risk';
-    } else if (riskPercentage > 40) {
-      riskBar.className = 'risk-fill medium-risk';
-    } else {
-      riskBar.className = 'risk-fill low-risk';
+    // Set color based on risk and legitimacy
+    if (riskBar) {
+      if (isLegitimateWebsite && riskPercentage < 60) {
+        // Lower risk threshold for legitimate brands
+        riskBar.className = 'risk-fill low-risk';
+      } else if (riskPercentage > 75) {
+        riskBar.className = 'risk-fill high-risk';
+      } else if (riskPercentage > 40) {
+        riskBar.className = 'risk-fill medium-risk';
+      } else {
+        riskBar.className = 'risk-fill low-risk';
+      }
+    }
+    
+    // Add brand verification badge if it's a legitimate site
+    if (result && isLegitimateWebsite) {
+      const verifiedBadge = document.createElement('div');
+      verifiedBadge.className = 'verified-badge';
+      verifiedBadge.innerHTML = '✓ Verified Brand Site';
+      
+      // Insert badge after the header
+      const header = result.querySelector('.header');
+      if (header && header.nextSibling) {
+        result.insertBefore(verifiedBadge, header.nextSibling);
+      }
+    }
+    
+    // If site is likely legitimate but not specifically whitelisted, show that
+    if (result && data.is_likely_legitimate && !data.is_legitimate_brand) {
+      const likelyLegitBadge = document.createElement('div');
+      likelyLegitBadge.className = 'likely-legitimate-badge';
+      likelyLegitBadge.innerHTML = 'Likely Safe Site';
+      
+      // Insert badge after the header
+      const header = result.querySelector('.header');
+      if (header && header.nextSibling) {
+        result.insertBefore(likelyLegitBadge, header.nextSibling);
+      }
+    }
+    
+    // Additional warnings for high-risk cases - but only if not a legitimate brand site
+    // or if it's an exceptionally high risk score
+    if (result && ((riskPercentage >= 60 && !data.is_legitimate_brand && !data.is_likely_legitimate) || 
+        (riskPercentage >= 80) || // Very high risk even for legit sites
+        (data.ml_prediction === 'phishing' && data.ml_confidence > 0.8))) {
+      // Add visual warning
+      const warningDiv = document.createElement('div');
+      warningDiv.className = 'high-risk-warning';
+      warningDiv.innerHTML = 'HIGH RISK DETECTED - Exercise extreme caution!';
+      result.insertBefore(warningDiv, result.firstChild);
     }
     
     // Request source code analysis
     requestSourceCodeAnalysis();
   }
   
-  // New function to handle source code analysis results
+  // New function to handle source code analysis results with special handling for brands
   function showSourceCodeAnalysis(analysisData) {
     if (!sourceCodeAnalysisDiv) return;
     
@@ -71,56 +142,115 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Create header
     const header = document.createElement('h3');
-    header.textContent = 'Source Code Analysis';
+    header.textContent = 'Page Analysis';
     sourceCodeAnalysisDiv.appendChild(header);
+    
+    // If site is recognized as a legitimate brand, show that first
+    if (analysisData.isLegitimate) {
+      const brandInfo = document.createElement('div');
+      brandInfo.className = 'brand-info';
+      
+      if (analysisData.brandName) {
+        brandInfo.innerHTML = `<strong>✓ Recognized ${analysisData.brandName} site</strong>`;
+      } else {
+        brandInfo.innerHTML = `<strong>✓ Likely legitimate site</strong>`;
+      }
+      
+      sourceCodeAnalysisDiv.appendChild(brandInfo);
+      
+      // If no significant threats were found on the legitimate site, show that
+      if (analysisData.threatIndicators.length === 0 || 
+          (analysisData.threatIndicators.length === 1 && analysisData.riskScore < 20)) {
+        const safeInfo = document.createElement('p');
+        safeInfo.textContent = 'No suspicious code patterns detected';
+        safeInfo.className = 'safe-info';
+        sourceCodeAnalysisDiv.appendChild(safeInfo);
+        return;
+      }
+    }
     
     // Add threat indicators if any
     if (analysisData.threatIndicators && analysisData.threatIndicators.length > 0) {
       const threatList = document.createElement('ul');
       threatList.className = 'threat-list';
       
+      // Map threat codes to user-friendly descriptions
       const threatMapping = {
         'obfuscatedJS': 'Obfuscated JavaScript detected',
         'hiddenElements': 'Hidden elements present',
         'externalFormSubmission': 'Form submits to external domain',
-        'credentialStealing': 'Potential credential stealing',
-        'excessiveHiddenElements': 'Excessive hidden elements',
-        'suspiciousInlineScript': 'Suspicious inline scripts'
+        'credentialStealingForms': 'Potential credential stealing',
+        'hiddenFormElements': 'Hidden elements in forms',
+        'suspiciousScripts': 'Suspicious scripts detected',
+        'passwordFieldsInHiddenElements': 'Password fields in hidden elements',
+        'documentWriteLongString': 'Dynamically written content',
+        'multipleSuspiciousForms': 'Multiple suspicious forms',
+        'multipleExternalIframes': 'Multiple external frames'
       };
       
-      analysisData.threatIndicators.forEach(threat => {
+      // Only show the most important threats (up to 3)
+      const priorityOrder = [
+        'credentialStealingForms', 
+        'passwordFieldsInHiddenElements',
+        'suspiciousScripts',
+        'obfuscatedJS',
+        'externalFormSubmission',
+        'hiddenFormElements'
+      ];
+      
+      // Sort threats by priority
+      const sortedThreats = [...analysisData.threatIndicators].sort((a, b) => {
+        const indexA = priorityOrder.indexOf(a);
+        const indexB = priorityOrder.indexOf(b);
+        return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+      });
+      
+      // Show at most 3 threats
+      const threatsToShow = sortedThreats.slice(0, 3);
+      
+      threatsToShow.forEach(threat => {
         const item = document.createElement('li');
         item.className = 'threat-item';
         item.textContent = threatMapping[threat] || threat;
         threatList.appendChild(item);
       });
       
-      sourceCodeAnalysisDiv.appendChild(threatList);
+      if (threatsToShow.length > 0) {
+        sourceCodeAnalysisDiv.appendChild(threatList);
+      }
       
       // Add warning if high risk
-      if (analysisData.riskScore > 40) {
+      // Adjust threshold based on whether it's a legitimate site
+      const riskThreshold = analysisData.isLegitimate ? 60 : 40;
+      if (analysisData.riskScore > riskThreshold) {
         const warning = document.createElement('div');
         warning.className = 'source-code-warning';
-        warning.textContent = `Page source contains suspicious code (Risk: ${analysisData.riskScore}/100)`;
+        warning.textContent = `Suspicious code detected (Risk: ${analysisData.riskScore}/100)`;
         sourceCodeAnalysisDiv.appendChild(warning);
       }
     } else {
       // No threats found
       const noThreats = document.createElement('p');
-      noThreats.textContent = 'No suspicious code patterns detected in page source';
+      noThreats.textContent = 'No suspicious code patterns detected';
+      noThreats.className = 'safe-info';
       sourceCodeAnalysisDiv.appendChild(noThreats);
     }
     
     // Add details if available
-    if (analysisData.threatDetails) {
+    if (analysisData.threatDetails && (
+        (analysisData.threatDetails.forms && analysisData.threatDetails.forms.passwordFieldsCount > 0) || 
+        (analysisData.threatDetails.scripts && analysisData.threatDetails.scripts.suspicious > 0))
+    ) {
       const details = document.createElement('div');
       details.className = 'code-details';
       
       if (analysisData.threatDetails.forms) {
         const formInfo = document.createElement('p');
-        formInfo.textContent = `Forms: ${analysisData.threatDetails.forms.count} (${analysisData.threatDetails.forms.passwordFields} password fields)`;
-        if (analysisData.threatDetails.forms.externalActions > 0) {
-          formInfo.textContent += ` - ${analysisData.threatDetails.forms.externalActions} external submission targets`;
+        formInfo.textContent = `Forms: ${analysisData.threatDetails.forms.passwordFieldsCount > 0 ? 
+          `Contains ${analysisData.threatDetails.forms.passwordFieldsCount} password fields` : 'No password fields'}`;
+        
+        if (analysisData.threatDetails.forms.credentialStealingForms > 0) {
+          formInfo.textContent += ` - Submits to external domain`;
           formInfo.className = 'warning-detail';
         }
         details.appendChild(formInfo);
@@ -141,7 +271,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Function to request source code analysis from content script
   function requestSourceCodeAnalysis() {
+    if (!sourceCodeAnalysisDiv) return;
+    
     chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+      if (!tabs || !tabs.length) return;
+      
       const activeTab = tabs[0];
       
       // First try to see if we already have analysis results
@@ -153,7 +287,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           chrome.tabs.sendMessage(activeTab.id, {action: 'analyzeSourceCode'}, (response) => {
             if (response) {
               showSourceCodeAnalysis(response);
-            } else {
+            } else if (sourceCodeAnalysisDiv) {
               // Content script may not be loaded or accessible
               sourceCodeAnalysisDiv.innerHTML = '<p>Source code analysis not available for this page</p>';
             }
@@ -166,108 +300,111 @@ document.addEventListener('DOMContentLoaded', async () => {
   // First check if server is running
   async function checkServerHealth() {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
-      const healthResponse = await fetch('http://localhost:5000/health', { 
-        signal: controller.signal 
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!healthResponse.ok) {
-        throw new Error(`Server health check failed: ${healthResponse.status}`);
-      }
-      
-      const healthData = await healthResponse.json();
-      if (!healthData.detector_loaded) {
-        throw new Error("Phishing detector not properly initialized");
-      }
-      
-      console.log("Server health check passed:", healthData);
-      return true;
+        console.log("Checking server health...");
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+        
+        const healthResponse = await fetch('http://localhost:5000/health', {
+            signal: controller.signal,
+            mode: 'cors',  // Explicitly set CORS mode
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!healthResponse.ok) {
+            throw new Error(`Server health check failed: ${healthResponse.status}`);
+        }
+        
+        const healthData = await healthResponse.json();
+        console.log("Server health check response:", healthData);
+        
+        if (!healthData.detector_loaded) {
+            throw new Error("Phishing detector not properly initialized");
+        }
+        
+        return true;
     } catch (healthError) {
-      console.error("Server health check failed:", healthError);
-      showError(`Server unavailable or detector not initialized. Please make sure the API server is running at http://localhost:5000 and scikit-learn is installed.\n\nError: ${healthError.message}`);
-      return false;
+        console.error("Server health check failed:", healthError);
+        showError(`Server connection failed. Please ensure the API server is running at http://localhost:5000\n\nError: ${healthError.message}`);
+        return false;
     }
   }
 
-  showLoading();
+  // Update the URL analysis function
+  async function analyzeUrl(url) {
+    try {
+        console.log("Sending analysis request for URL:", url);
+        const response = await fetch(`http://localhost:5000/check_url?url=${encodeURIComponent(url)}`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
 
-  try {
-    // Check server health first
-    const serverReady = await checkServerHealth();
-    if (!serverReady) return;
-    
-    // Get current tab URL
-    let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    let url = tab.url;
-    
-    // Skip chrome:// and extension URLs
-    if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || 
-        url.startsWith('moz-extension://') || url.startsWith('edge://') ||
-        url.startsWith('about:') || url.startsWith('file://')) {
-      showError('Cannot analyze browser internal pages or local files');
-      return;
+        if (!response.ok) {
+            throw new Error(`Server responded with status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Analysis response:", data);
+        return data;
+    } catch (error) {
+        console.error("Analysis request failed:", error);
+        throw error;
     }
-    
-    // Check if URL is valid
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      showError('Can only analyze HTTP/HTTPS URLs');
-      return;
-    }
-    
-    console.log('Analyzing URL with enhanced layered detection:', url);
-    
-    // Add timeout to API call
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+  }
+
+  // Update the main analysis flow
+  async function initializeAnalysis() {
+    showLoading();
     
     try {
-      const response = await fetch(`http://localhost:5000/check_url?url=${encodeURIComponent(url)}`, {
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`Enhanced detection server responded with status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('Enhanced Layered Detection API Response:', data);
-      
-      if (data.error) {
-        showError(`Enhanced Detection Error: ${data.error}`);
-      } else {
-        showResult(data);
-        
-        // Additional warnings for high-risk cases
-        if (data.risk_percentage >= 60 || 
-            (data.ml_prediction === 'phishing' && data.ml_confidence > 0.6)) {
-          // Add visual warning
-          const warningDiv = document.createElement('div');
-          warningDiv.className = 'high-risk-warning';
-          warningDiv.innerHTML = 'HIGH RISK DETECTED - Avoid this website!';
-          result.insertBefore(warningDiv, result.firstChild);
+        console.log("Extension popup loaded, checking server...");
+        const serverReady = await checkServerHealth();
+        if (!serverReady) {
+            console.error("Server not ready");
+            return;
         }
-      }
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      if (fetchError.name === 'AbortError') {
-        showError('Analysis request timed out. Server might be overloaded.');
-      } else {
-        console.error('Enhanced Layered Detection Error:', fetchError);
-        showError(`Could not connect to phishing detection server: ${fetchError.message}. Make sure the API server is running on localhost:5000`);
-      }
+
+        let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tabs || !tabs.length) {
+            showError('No active tab found');
+            return;
+        }
+        
+        let tab = tabs[0];
+        if (!tab || !tab.url) {
+            showError('Cannot access tab URL');
+            return;
+        }
+        
+        let url = tab.url;
+        
+        console.log("Analyzing current tab URL:", url);
+        
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            showError('Can only analyze HTTP/HTTPS URLs');
+            return;
+        }
+
+        const analysisResult = await analyzeUrl(url);
+        showResult(analysisResult);
+        
+    } catch (error) {
+        console.error("Analysis failed:", error);
+        showError(`Analysis failed: ${error.message}`);
     }
-  } catch (error) {
-    console.error('CRITICAL SYSTEM ERROR:', error);
-    showError('NEURAL NETWORK CONNECTION FAILED. THREAT ANALYSIS COMPROMISED. MANUAL VERIFICATION REQUIRED.');
   }
   
+  // Call the initialization function when DOM is loaded
+  initializeAnalysis();
+
   // Listen for source code analysis results from content script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'sourceCodeAnalysisResult' || message.action === 'sourceCodeThreatUpdated') {

@@ -1,0 +1,46 @@
+{
+  "accuracy": 0.8146927628584434,
+  "best_params": {
+    "max_depth": 10,
+    "min_samples_split": 2,
+    "n_estimators": 50
+  },
+  "best_cv_score": 0.81328,
+  "classification_report": {
+    "Legitimate": {
+      "precision": 0.7947251189632479,
+      "recall": 0.9989691508857667,
+      "f1-score": 0.885218724978291,
+      "support": 78576.0
+    },
+    "Phishing": {
+      "precision": 0.9926895306859206,
+      "recall": 0.3516978960158598,
+      "f1-score": 0.5193842376162818,
+      "support": 31274.0
+    },
+    "accuracy": 0.8146927628584434,
+    "macro avg": {
+      "precision": 0.8937073248245843,
+      "recall": 0.6753335234508132,
+      "f1-score": 0.7023014812972864,
+      "support": 109850.0
+    },
+    "weighted avg": {
+      "precision": 0.8510850553511847,
+      "recall": 0.8146927628584434,
+      "f1-score": 0.7810666288675995,
+      "support": 109850.0
+    }
+  },
+  "feature_count": 20000,
+  "training_samples": 100000,
+  "test_samples": 109850,
+  "model_type": "RandomForest",
+  "gpu_info": {
+    "xgboost_gpu": false,
+    "cupy_available": true,
+    "device_count": 0
+  },
+  "gpu_accelerated": false
+}
